@@ -54,16 +54,17 @@ app.post("/api/shorturl", async function(req, res){
       short: index,
     });
     res.json({
-    "original_url": req.body.url,
-    "short_url": index,
+    original_url: req.body.url,
+    short_url: index,
   })}
-    else res.json({"original_url": x.name, "short_url": x.short});
+    else res.json({original_url: x.name, short_url: x.short});
     
   });
 
 app.get("/api/shorturl/:id", async function(req, res) {
   const id = req.params.id;
-  const [x] = await ShortUrl.find({short: id});
+  const x = await ShortUrl.findOne({short: id});
+  console.log(x);
   if(!x) res.json({"error":"No short URL found for the given input"});
   else {console.log(x.name);
     res.redirect(x.name);
