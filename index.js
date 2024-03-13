@@ -53,11 +53,11 @@ app.post("/api/shorturl", async function(req, res){
       name: req.body.url,
       short: index,
     });
- res.json({
+    res.json({
     "original_url": req.body.url,
     "short_url": index,
   })}
-    else res.json({"original_url": x.name, "short_url": x.index});
+    else res.json({"original_url": x.name, "short_url": x.short});
     
   });
 
