@@ -2,26 +2,19 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const app = express();
-const dns = require('node:dns');
-const bodyParser = require('body-parser');
-const mongoose = require('mongoose');
+const {MongoClient} = require('mongodb');
+const dns = require('dns');
+const urlparser = require('url');
 
-const { Schema } = mongoose;
-const shortUrlSchema = new Schema({
-  name: String,
-  short: Number
-});
-
-let ShortUrl = mongoose.model('ShortUrl', shortUrlSchema);
-
-
-
+const client = new MongoClient(process.env.MONGO_URI);
+const db = client.db('test');
+const urls = db.collection('urls');
 // Basic Configuration
 const port = process.env.PORT || 3000;
 
-mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
-
 app.use(cors());
+app.use(express.urlencoded({extended: true}))
+
 app.use('/public', express.static(`${process.cwd()}/public`));
 
 app.get('/', function(req, res) {
@@ -29,45 +22,28 @@ app.get('/', function(req, res) {
 });
 
 // Your first API endpoint
-app.get('/api/hello', function(req, res) {
-  res.json({ greeting: 'hello API' });
+app.post('/api/shorturl', function(req, res) {
+  const url = req.body.url;
+  const dnslookup = dns.lookup(urlparser.parse(url).hostname, async (err, address) => {
+    if(!address) {
+      res.json({error: 'Invalid URL'})
+    }
+    else {const urlCount = await urls.countDocuments({});
+  const urlDoc = {
+    url,
+    short_url: urlCount
+  }
+const result = await urls.insertOne(urlDoc)
+res.json({original_url: url, short_url: urlCount})}
+  })
 });
+
+app.get('/api/shorturl/:short_url', async (req, res) => {
+  const shorturl = req.params.short_url;
+  const urlDoc = await urls.findOne({short_url: +shorturl});
+  res.redirect(urlDoc.url);
+})
 
 app.listen(port, function() {
   console.log(`Listening on port ${port}`);
 });
-
-app.use(bodyParser.urlencoded({extended: false}));
-
-app.post("/api/shorturl", async function(req, res){
-  dns.lookup(req.body.url.slice(8), function(err, address){
-    console.log(address);
-    if(err) {
-      res.json({"error": "Invalid Hostname"})
-      return;
-    }});
-    const [x] = await ShortUrl.find({name: req.body.url});
-    if(!x) {
-      let index = Math.round(Math.random() * 100) + 4;
-    ShortUrl.create({
-      name: req.body.url,
-      short: index,
-    });
-    res.json({
-    original_url: req.body.url,
-    short_url: index,
-  })}
-    else res.json({original_url: x.name, short_url: x.short});
-    
-  });
-
-app.get("/api/shorturl/:id", async function(req, res) {
-  const id = req.params.id;
-  const x = await ShortUrl.findOne({short: id});
-  console.log(x);
-  if(!x) res.json({"error":"No short URL found for the given input"});
-  else {console.log(x.name);
-    res.redirect(x.name);
-  }
-
-})
